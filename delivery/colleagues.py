@@ -75,3 +75,43 @@ class Service(Colleague):
         self.busy -= 1
         self.mediator.notify(self, f"{self.key}_done", order)
         self._start_next()
+
+
+class CourierFleet(Colleague):
+    """The couriers. A courier is busy from assignment until the delivery is made.
+
+    Sends "courier_assigned" when a courier takes an order and "delivered" when the
+    trip ends."""
+
+    def __init__(self, mediator, clock, cfg):
+        super().__init__(mediator, clock)
+        self.cfg = cfg
+        self.busy = 0
+        self.waiting = deque()
+
+    @property
+    def size(self):
+        return self.cfg.couriers          # read live, so the size can change mid-run
+
+    def request(self, order):
+        if self.busy < self.size:
+            self._assign(order)
+        else:
+            order.stage = "waiting_courier"
+            self.waiting.append(order)
+
+    def start_trip(self, order):
+        self.clock.after(order.trip, self._trip_done, order)
+
+    def assign_waiting(self):
+        while self.waiting and self.busy < self.size:
+            self._assign(self.waiting.popleft())
+
+    def _assign(self, order):
+        self.busy += 1
+        self.mediator.notify(self, "courier_assigned", order)
+
+    def _trip_done(self, order):
+        self.busy -= 1
+        self.mediator.notify(self, "delivered", order)
+        self.assign_waiting()
