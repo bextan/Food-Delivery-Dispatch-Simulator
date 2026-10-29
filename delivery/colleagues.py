@@ -37,3 +37,41 @@ class OrderIntake(Colleague):
         self._next_id += 1
         self.mediator.notify(self, "order_placed", order)
         self.start()
+
+
+class Service(Colleague):
+    """A pool of workers with a FIFO queue (payment, kitchen, courier matching, notify).
+
+    When a step finishes it sends the event "<key>_done" to the mediator."""
+
+    def __init__(self, mediator, clock, key, workers):
+        super().__init__(mediator, clock)
+        self.key, self.workers = key, workers
+        self.label = STEPS[key][0]
+        self.busy = 0
+        self.queue = deque()
+        self.busy_time = 0.0       # integral of busy workers over time
+        self._last = 0.0
+
+    def account(self):
+        now = self.clock.now
+        self.busy_time += self.busy * (now - self._last)
+        self._last = now
+
+    def submit(self, order):
+        order.stage = self.key
+        self.queue.append(order)
+        self._start_next()
+
+    def _start_next(self):
+        while self.queue and self.busy < self.workers:
+            order = self.queue.popleft()
+            self.account()
+            self.busy += 1
+            self.clock.after(order.times[self.key], self._finish, order)
+
+    def _finish(self, order):
+        self.account()
+        self.busy -= 1
+        self.mediator.notify(self, f"{self.key}_done", order)
+        self._start_next()
