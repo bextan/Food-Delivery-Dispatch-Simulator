@@ -96,3 +96,55 @@ class Metrics:
             "util": {k: round(min(v, 1.0), 4) for k, v in util.items()},
         })
         self.clock.after(1.0, self._sample)
+
+    # ---- reports ---------------------------------------------------------------------
+    def bottleneck(self):
+        """Name the busiest resource right now, and flag the starvation paradox:
+        the mediator is full while the services behind it are mostly idle."""
+        if not self.series:
+            return {"key": None, "text": "Not started yet.", "starved": False}
+        u = self.series[-1]["util"]
+        names = {"mediator": "Mediator slots", "couriers": "Couriers", **{k: v[0] for k, v in STEPS.items()}}
+        key = max(u, key=u.get)
+        busiest_service = max(u[k] for k in STEPS)
+        couriers_short = u["couriers"] >= 0.95 and self.fleet.waiting
+        starved = (u["mediator"] >= 0.95 and busiest_service < 0.6 and bool(self.mediator.inbound)
+                   and not couriers_short)
+        if u[key] < 0.8:
+            text = "No bottleneck. Every resource has spare capacity."
+            key = None
+        elif couriers_short:
+            key = "couriers"
+            text = (f"Couriers: all busy, {len(self.fleet.waiting)} orders waiting for one."
+                    " Those orders keep their mediator slots, so the mediator fills up too.")
+        elif starved:
+            text = (f"Mediator slots are full while the busiest service is only "
+                    f"{busiest_service:.0%} busy. Orders queue for the mediator, not for real work.")
+        else:
+            text = f"{names[key]}: {u[key]:.0%} busy."
+        return {"key": key, "text": text, "starved": starved}
+
+    def summary(self):
+        c, d = self.counts, self.dispatch_times
+        t = max(self.clock.now, 1e-9)
+        util = {}
+        for k, s in self.services.items():
+            s.account()
+            util[k] = round(s.busy_time / (t * max(s.workers, 1)), 4)
+        util["mediator"] = round(self._slot_time / (t * self.cfg.mediator_slots), 4)
+        util["couriers"] = round(self._courier_time / (t * self.cfg.couriers), 4)
+        closed = c["delivered"] + c["abandoned"] + c["declined"]
+        return {
+            "time": round(self.clock.now, 1),
+            **c,
+            "in_progress": len(self.active),
+            "success_rate": round(c["delivered"] / closed, 4) if closed else 0.0,
+            "throughput": round(c["dispatched"] / t, 3),
+            "dispatch_p50": round(percentile(d, 50), 2),
+            "dispatch_p95": round(percentile(d, 95), 2),
+            "queue_wait_p95": round(percentile(self.queue_waits, 95), 2),
+            "delivery_p50": round(percentile(self.delivery_times, 50), 2),
+            "peak_queue": max((r["queue"] for r in self.series), default=0),
+            "revenue_lost": round((c["abandoned"] + c["declined"]) * ORDER_VALUE, 2),
+            "utilization": util,
+        }
