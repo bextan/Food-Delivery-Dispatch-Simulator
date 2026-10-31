@@ -83,3 +83,12 @@ class Simulation:
             "series": self.metrics.series[since:],
             "series_len": len(self.metrics.series),
         }
+
+
+def compare(scenarios=None, seed=7, duration=300.0):
+    """Run several scenarios through the mediator with the same seed, side by side."""
+    out = {}
+    for key in scenarios or SCENARIOS:
+        sim = Simulation(scenario_config(key, seed=seed, duration=duration)).run()
+        out[key] = {"summary": sim.summary(), "bottleneck": sim.bottleneck()["text"]}
+    return out
