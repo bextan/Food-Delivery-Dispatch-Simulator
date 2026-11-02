@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Dispatch Simulator</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f4f4f1; --surface: #fcfcfb; --surface-2: #f0efec;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, .10);
+  --accent: #2a78d6;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size: 17px; margin: 0; }
+h2 { font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+p { margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+.muted { color: var(--ink-2); }
+.small { font-size: 12px; }
+
+header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+header .clock { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.pill { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
+.pill.running { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--ink); }
+
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1500px; margin: 0 auto; }
+aside { display: flex; flex-direction: column; gap: 16px; }
+main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+
+.field { margin-bottom: 12px; }
+.field label, .field .label { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.field label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+select { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.btn { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; background: var(--surface-2); cursor: pointer; font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+.hint { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.kpi .name { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.kpi .note { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+.row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.pipe { display: grid; grid-template-columns: 120px minmax(0, 1fr) 92px; gap: 8px 12px; align-items: center; font-size: 13px; }
+.pipe .arrow { grid-column: 1 / -1; height: 0; }
+.bar { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; border-radius: 4px; background: var(--accent); transition: width .2s; }
+.pipe .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12px; }
+.pipe .dim { opacity: .35; }
+.bottleneck { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); display: flex; gap: 10px; align-items: flex-start; }
+.bottleneck .dot { margin-top: 6px; }
+.fleet { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; }
+.fleet span { width: 9px; height: 9px; border-radius: 2px; background: var(--surface-2); outline: 1px solid var(--border); outline-offset: -1px; }
+.fleet span.busy { background: var(--s3); outline: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+
+.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.chart { position: relative; height: 180px; }
+.chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 10px; }
+.tip { position: fixed; pointer-events: none; z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); display: none; min-width: 130px; }
+.tip .row2 { display: flex; justify-content: space-between; gap: 12px; }
+.tip b { font-variant-numeric: tabular-nums; }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+td.better { font-weight: 600; }
+.compare-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .charts { grid-template-columns: minmax(0, 1fr); }
+  .row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; }
+  header { padding: 10px 16px; flex-wrap: wrap; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pipe { grid-template-columns: 96px minmax(0, 1fr) 80px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Delivery Dispatch Simulator</h1>
+    <div class="small muted">Event-driven mediator topology</div>
+  </div>
+  <span id="status" class="pill">Paused</span>
+  <span class="clock">t = <b id="clock">0.0</b> s</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <section class="card">
+      <h2>Run</h2>
+      <div class="buttons">
+        <button class="btn primary" id="play">Start</button>
+        <button class="btn" id="reset">Reset</button>
+      </div>
+      <div class="field">
+        <label for="scenario">Scenario</label>
+        <select id="scenario"></select>
+        <p class="hint" id="scenario-text"></p>
+      </div>
+      <div class="field">
+        <label for="speed">Speed</label>
+        <select id="speed">
+          <option value="1">1× real time</option>
+          <option value="2">2×</option>
+          <option value="5" selected>5×</option>
+          <option value="10">10×</option>
+          <option value="20">20×</option>
+        </select>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Live settings</h2>
+      <div id="params"></div>
+      <p class="hint">Changes apply immediately, even while running.</p>
+    </section>
+  </aside>
+
+  <main>
+    <section class="kpis" id="kpis"></section>
+
+    <section class="row">
+      <div class="card">
+        <h2>Pipeline right now</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="bottleneck"><span class="dot" id="bn-dot"></span><p id="bn-text"></p></div>
+      </div>
+      <div class="card">
+        <h2>Couriers</h2>
+        <p class="small muted"><b id="fleet-busy">0</b> busy of <b id="fleet-size">0</b> · <span id="fleet-wait">0</span> orders waiting for a courier</p>
+        <div class="fleet" id="fleet"></div>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="card"><h2>Queues</h2><div class="legend" id="lg-queue"></div><div class="chart" id="ch-queue"></div></div>
+      <div class="card"><h2>Dispatch time, last 20 s</h2><div class="legend" id="lg-lat"></div><div class="chart" id="ch-lat"></div></div>
+      <div class="card"><h2>How busy each part is</h2><div class="legend" id="lg-util"></div><div class="chart" id="ch-util"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Compare scenarios</h2>
+      <div class="compare-head">
+        <button class="btn primary" id="cmp-run">Run comparison</button>
+        <span class="small muted">Runs 300 s of every scenario through the mediator with the same seed.</span>
+      </div>
+      <div id="cmp-out" class="small muted">No comparison yet.</div>
+    </section>
+  </main>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fmt = (v, d = 0) => Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+const api = async (path, body) => {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+  return r.json();
+};
+
+let META = null, state = null, rows = [], running = false, timer = null;
+
+/* ---------------- line chart (SVG, crosshair tooltip) ---------------- */
+function lineChart(el, legendEl, series, opts = {}) {
+  legendEl.innerHTML = series.map(s => `<span><i style="background:var(${s.color})"></i>${s.name}</span>`).join("");
+  const tip = $("tip");
+  let data = [], geom = null;
+  function draw(newData) {
+    data = newData;
+    const w = el.clientWidth, h = el.clientHeight, L = 36, R = 8, T = 6, B = 18;
+    if (!w) return;
+    const xs = data.map(r => r.t);
+    const x0 = xs.length ? xs[0] : 0, x1 = xs.length ? Math.max(xs[xs.length - 1], x0 + 10) : 60;
+    const top = opts.yMax || Math.max(opts.yFloor || 1, ...data.flatMap(r => series.map(s => s.get(r))));
+    const step = opts.yMax ? opts.yMax / 4 : niceStep(top / 4);
+    const ticks = Math.max(1, Math.ceil(top / step - 1e-9)), yMax = step * ticks;
+    const X = t => L + (t - x0) / (x1 - x0) * (w - L - R);
+    const Y = v => T + (1 - v / yMax) * (h - T - B);
+    geom = { X, L, R, w, x0, x1 };
+    let svg = "";
+    for (let i = 0; i <= ticks; i++) {
+      const v = step * i, y = Y(v);
+      svg += `<line x1="${L}" x2="${w - R}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>`;
+      svg += `<text x="${L - 6}" y="${y + 3}" text-anchor="end">${opts.pct ? Math.round(v * 100) + "%" : fmtAxis(v)}</text>`;
+    }
+    for (let i = 0; i <= 4; i++) {
+      const t = x0 + (x1 - x0) * i / 4;
+      svg += `<text x="${X(t)}" y="${h - 4}" text-anchor="middle">${Math.round(t)}s</text>`;
+    }
+    for (const s of series) {
+      if (!data.length) break;
+      const d = data.map((r, i) => `${i ? "L" : "M"}${X(r.t).toFixed(1)},${Y(Math.min(s.get(r), yMax)).toFixed(1)}`).join("");
+      svg += `<path d="${d}" fill="none" stroke="var(${s.color})" stroke-width="2" stroke-linejoin="round" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/>`;
+    }
+    svg += `<line class="cross" x1="0" x2="0" y1="${T}" y2="${h - B}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>`;
+    el.innerHTML = `<svg viewBox="0 0 ${w} ${h}">${svg}</svg>`;
+  }
+  el.addEventListener("mousemove", (e) => {
+    if (!geom || !data.length) return;
+    const r = el.getBoundingClientRect(), px = e.clientX - r.left;
+    const t = geom.x0 + (px - geom.L) / (geom.w - geom.L - geom.R) * (geom.x1 - geom.x0);
+    let best = 0;
+    for (let i = 1; i < data.length; i++) if (Math.abs(data[i].t - t) < Math.abs(data[best].t - t)) best = i;
+    const row = data[best], cx = geom.X(row.t);
+    const line = el.querySelector(".cross");
+    line.setAttribute("x1", cx); line.setAttribute("x2", cx); line.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div class="muted">t = ${fmt(row.t, 0)} s</div>` + series.map(s =>
+      `<div class="row2"><span><i class="dot" style="background:var(${s.color})"></i> ${s.name}</span><b>${opts.pct ? Math.round(s.get(row) * 100) + "%" : fmt(s.get(row), opts.digits || 0)}</b></div>`).join("");
+    tip.style.display = "block";
+    const tx = e.clientX + 14 + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 14 : e.clientX + 14;
+    tip.style.left = tx + "px"; tip.style.top = (e.clientY - 10) + "px";
+  });
+  el.addEventListener("mouseleave", () => {
+    tip.style.display = "none";
+    const line = el.querySelector(".cross"); if (line) line.setAttribute("visibility", "hidden");
+  });
+  return { draw, redraw: () => draw(data) };
+}
+function niceStep(v) {          // round a tick step up to 1, 2, 2.5 or 5 × 10^n
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+}
+const fmtAxis = (v) => v >= 1000 ? (v / 1000) + "k" : String(+v.toFixed(1));
+
+const charts = {
+  queue: lineChart($("ch-queue"), $("lg-queue"), [
+    { name: "Inbound queue", color: "--s1", get: r => r.queue },
+    { name: "Slots in use", color: "--s2", get: r => r.slots },
+    { name: "Waiting for courier", color: "--s3", get: r => r.wait_courier },
+  ], { yFloor: 10 }),
+  lat: lineChart($("ch-lat"), $("lg-lat"), [
+    { name: "p50", color: "--s1", get: r => r.p50 },
+    { name: "p95", color: "--s2", get: r => r.p95 },
+  ], { yFloor: 5, digits: 1 }),
+  util: lineChart($("ch-util"), $("lg-util"), [
+    { name: "Mediator", color: "--s1", get: r => r.util.mediator },
+    { name: "Kitchen", color: "--s2", get: r => r.util.kitchen },
+    { name: "Courier match", color: "--s4", get: r => r.util.courier },
+    { name: "Couriers", color: "--s3", get: r => r.util.couriers },
+  ], { yMax: 1, pct: true }),
+};
+
+/* ---------------- KPI tiles ---------------- */
+const KPIS = [
+  { key: "thr", name: "Dispatched / s", get: (s, last) => fmt(last ? last.throughput : 0, 1), note: (s) => `arrivals ${fmt(state.rate, 1)}/s` },
+  { key: "queue", name: "Inbound queue", get: (s) => fmt(state.queue), status: () => state.queue >= 100 ? "critical" : state.queue > 0 ? "warning" : "good",
+    note: (s) => `peak ${fmt(s.peak_queue)}` },
+  { key: "p95", name: "Dispatch p95 (20 s)", get: (s, last) => fmt(last ? last.p95 : 0, 1) + " s",
+    status: (s, last) => !last ? "good" : last.p95 > 20 ? "critical" : last.p95 > 10 ? "warning" : "good", note: (s) => `run p95 ${fmt(s.dispatch_p95, 1)} s` },
+  { key: "del", name: "Delivered", get: (s) => fmt(s.delivered), note: (s) => `${fmt(s.success_rate * 100, 1)}% of closed orders` },
+  { key: "ab", name: "Abandoned", get: (s) => fmt(s.abandoned), status: (s) => s.abandoned > 0 ? "critical" : "good", note: (s) => `${fmt(s.declined)} payments declined` },
+  { key: "rev", name: "Revenue lost", get: (s) => "$" + fmt(s.revenue_lost), note: (s) => `${fmt(s.placed)} orders placed` },
+];
+const STATUS = { good: ["--good", "OK"], warning: ["--warning", "High"], critical: ["--critical", "Critical"] };
+$("kpis").innerHTML = KPIS.map(k => `<div class="kpi"><div class="name">${k.name}</div><div class="value" id="k-${k.key}">–</div><div class="note" id="kn-${k.key}"></div></div>`).join("");
+
+function renderKpis() {
+  const s = state.summary, last = rows[rows.length - 1];
+  for (const k of KPIS) {
+    $("k-" + k.key).textContent = k.get(s, last);
+    let note = k.note(s, last);
+    if (k.status) {
+      const [color, label] = STATUS[k.status(s, last)];
+      note = `<span class="dot" style="background:var(${color})"></span>${label} · ${note}`;
+    }
+    $("kn-" + k.key).innerHTML = note;
+  }
+}
+
+/* ---------------- pipeline, couriers ---------------- */
+function barColor(u) { return u >= 0.95 ? "--critical" : u >= 0.7 ? "--warning" : "--accent"; }
+function pipeRow(name, used, cap, extra, dim) {
+  const u = cap ? used / cap : 0;
+  return `<div class="${dim ? "dim" : ""}">${name}</div>
+    <div class="bar ${dim ? "dim" : ""}" title="${Math.round(u * 100)}% busy"><div style="width:${Math.min(100, u * 100)}%;background:var(${barColor(u)})"></div></div>
+    <div class="num ${dim ? "dim" : ""}">${used}/${cap}${extra ? " · " + extra : ""}</div>`;
+}
+function renderPipeline() {
+  const c = state.config;
+  let html = `<div>Inbound queue</div><div class="small muted">${state.queue ? "orders waiting for a mediator slot" : "empty"}</div><div class="num">${state.queue}</div>`;
+  html += pipeRow("Mediator slots", state.slots_used, c.mediator_slots, "");
+  for (const [k, s] of Object.entries(state.services)) html += pipeRow(s.label, s.busy, s.workers, s.queue ? `${s.queue} queued` : "");
+  html += pipeRow("Couriers", state.couriers_busy, c.couriers, state.waiting_for_courier ? `${state.waiting_for_courier} wait` : "");
+  $("pipe").innerHTML = html;
+  const b = state.bottleneck;
+  $("bn-dot").style.background = `var(${b.key == null ? "--good" : b.starved ? "--critical" : "--warning"})`;
+  $("bn-text").innerHTML = `<b>${b.key == null ? "Healthy" : b.starved ? "Starvation paradox" : "Bottleneck"}.</b> ${b.text}`;
+}
+function renderFleet() {
+  const n = state.config.couriers, shown = Math.min(n, 400), el = $("fleet");
+  if (el.children.length !== shown) el.innerHTML = "<span></span>".repeat(shown);
+  const busy = Math.round(state.couriers_busy / n * shown);
+  [...el.children].forEach((d, i) => d.classList.toggle("busy", i < busy));
+  $("fleet-busy").textContent = state.couriers_busy; $("fleet-size").textContent = n;
+  $("fleet-wait").textContent = state.waiting_for_courier;
+}
+
+function render() {
+  $("clock").textContent = fmt(state.t, 1);
+  renderKpis(); renderPipeline(); renderFleet();
+  for (const c of Object.values(charts)) c.draw(rows);
+  // keep controls in sync with the server
+  $("scenario").value = state.scenario;
+  for (const [k] of Object.entries(META.params)) {
+    const input = $("p-" + k);
+    const v = k === "arrival_rate" ? state.rate : state.config[k];   // show the surge rate while it applies
+    if (document.activeElement !== input) { input.value = v; $("pv-" + k).textContent = fmt(v, META.params[k].int ? 0 : 1); }
+  }
+}
+
+function apply(s, replace) {
+  state = s;
+  rows = replace ? s.series.slice() : rows.concat(s.series);
+  render();
+}
+
+/* ---------------- run loop ---------------- */
+const TICK_MS = 250;
+async function tick() {
+  if (!running) return;
+  const seconds = Math.min(10, TICK_MS / 1000 * Number($("speed").value));
+  try { apply(await api("/api/tick", { seconds, since: rows.length })); }
+  catch (e) { setRunning(false); alert(e.message); return; }
+  timer = setTimeout(tick, TICK_MS);
+}
+function setRunning(on) {
+  running = on;
+  clearTimeout(timer);
+  $("play").textContent = on ? "Pause" : "Start";
+  $("status").textContent = on ? "Running" : "Paused";
+  $("status").classList.toggle("running", on);
+  if (on) tick();
+}
+async function reset(changes = {}) {
+  setRunning(false);
+  apply(await api("/api/reset", changes), true);
+  $("scenario-text").textContent = META.scenarios[state.scenario].text;
+}
+
+/* ---------------- controls ---------------- */
+const PARAM_LABELS = { arrival_rate: ["Orders per second", 0.1], mediator_slots: ["Mediator slots", 1], couriers: ["Couriers", 5], patience: ["Customer patience (s)", 1] };
+function buildControls() {
+  $("scenario").innerHTML =
+    Object.entries(META.scenarios).map(([k, s]) => `<option value="${k}">${s.name}</option>`).join("");
+  $("params").innerHTML = Object.entries(META.params).map(([k, p]) => {
+    const [label, step] = PARAM_LABELS[k];
+    const max = k === "mediator_slots" ? 200 : k === "couriers" ? 500 : k === "patience" ? 120 : p.max;
+    return `<div class="field"><label for="p-${k}">${label} <b id="pv-${k}"></b></label>
+      <input type="range" id="p-${k}" min="${p.min}" max="${max}" step="${step}"></div>`;
+  }).join("");
+  for (const k of Object.keys(META.params)) {
+    const input = $("p-" + k);
+    input.addEventListener("input", () => $("pv-" + k).textContent = fmt(input.value, META.params[k].int ? 0 : 1));
+    input.addEventListener("change", async () => {
+      try { await api("/api/params", { [k]: Number(input.value) }); apply(await api("/api/state?since=" + rows.length)); }
+      catch (e) { alert(e.message); }
+    });
+  }
+  $("play").onclick = () => setRunning(!running);
+  $("reset").onclick = () => reset();
+  $("scenario").onchange = () => reset({ scenario: $("scenario").value });
+  $("cmp-run").onclick = runCompare;
+  addEventListener("resize", () => Object.values(charts).forEach(c => c.redraw()));
+}
+
+/* ---------------- comparison ---------------- */
+const CMP_ROWS = [
+  ["Orders placed", "placed", 0, null], ["Delivered", "delivered", 0, "high"], ["Abandoned", "abandoned", 0, "low"],
+  ["Dispatches per second", "throughput", 2, "high"], ["Dispatch time p50 (s)", "dispatch_p50", 1, "low"],
+  ["Dispatch time p95 (s)", "dispatch_p95", 1, "low"], ["Peak inbound queue", "peak_queue", 0, "low"],
+  ["Revenue lost ($)", "revenue_lost", 0, "low"],
+];
+async function runCompare() {
+  const btn = $("cmp-run"); btn.disabled = true; btn.textContent = "Running…";
+  try {
+    const res = await api("/api/compare");
+    const keys = Object.keys(res);
+    const best = (k, better) => {
+      if (!better) return null;
+      const vals = keys.map(s => res[s].summary[k]);
+      return better === "high" ? Math.max(...vals) : Math.min(...vals);
+    };
+    $("cmp-out").classList.remove("muted");
+    $("cmp-out").innerHTML = `<div style="overflow-x:auto"><table><thead><tr><th>Metric</th>${keys.map(s => `<th>${META.scenarios[s].name}</th>`).join("")}</tr></thead><tbody>` +
+      CMP_ROWS.map(([label, k, d, better]) => {
+        const b = best(k, better);
+        return `<tr><td>${label}</td>${keys.map(s => { const v = res[s].summary[k]; return `<td class="${b != null && v === b ? "better" : ""}">${fmt(v, d)}</td>`; }).join("")}</tr>`;
+      }).join("") +
+      `<tr><td>Mediator slots busy</td>${keys.map(s => `<td>${fmt(res[s].summary.utilization.mediator * 100)}%</td>`).join("")}</tr>` +
+      `</tbody></table></div><p class="small muted" style="margin-top:8px">Bold marks the best value across scenarios.</p>`;
+  } catch (e) { $("cmp-out").textContent = "Comparison failed: " + e.message; }
+  btn.disabled = false; btn.textContent = "Run comparison";
+}
+
+(async function init() {
+  META = await api("/api/meta");
+  buildControls();
+  apply(await api("/api/state"), true);
+  $("scenario-text").textContent = META.scenarios[state.scenario].text;
+})();
+</script>
+</body>
+</html>
