@@ -10,6 +10,12 @@ It uses only the Python 3.10+ standard library. There is nothing to install.
 python main.py              # opens the dashboard at http://127.0.0.1:8770
 ```
 
+Documentation in `docs/`:
+
+* [SRS.doc](docs/SRS.doc): software requirements specification on the IEEE template.
+* [SRS_Simple.doc](docs/SRS_Simple.doc): a shorter, plain-language SRS (purpose, scope, requirements).
+* [ADR.doc](docs/ADR.doc): architecture decision records (why mediator, why the standard library, and so on).
+
 ## Architecture: the mediator pattern
 
 ```
@@ -112,6 +118,9 @@ delivery/config.py         settings, step timings, scenarios
 delivery/server.py         JSON API and the dashboard page
 delivery/web/index.html    the dashboard (HTML, CSS and JS in one file)
 tests/test_delivery.py     python -m unittest discover -s tests
+docs/SRS.doc               software requirements specification (IEEE template)
+docs/SRS_Simple.doc        simplified SRS
+docs/ADR.doc               architecture decision records
 ```
 
 ### HTTP API
