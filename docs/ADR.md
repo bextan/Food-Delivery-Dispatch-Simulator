@@ -11,7 +11,6 @@ Each record gives the situation (context), the decision, its consequences and th
 | [003](#adr-003-organise-the-code-by-mediator-pattern-roles) | Organise the code by mediator-pattern roles | Accepted | 3 November 2026 |
 | [004](#adr-004-discrete-event-simulation-with-a-custom-clock) | Discrete-event simulation with a custom clock | Accepted | 3 November 2026 |
 | [005](#adr-005-browser-driven-clock-and-a-single-file-dashboard) | Browser-driven clock and a single-file dashboard | Accepted | 3 November 2026 |
-| [006](#adr-006-use-only-the-python-standard-library) | Use only the Python standard library | Accepted | 3 November 2026 |
 
 ---
 
