@@ -133,8 +133,6 @@ Scenarios: **Normal day** (2 orders/s, keeps up); **Demand surge** (2 → 9 orde
 | ID | Requirement |
 |---|---|
 | REQ-17 | Run every chosen scenario for 300 s with the same random seed and show results side by side. |
-| REQ-18 | `python main.py` starts the dashboard and opens the browser. |
-| REQ-19 | `run`, `compare`, `scenarios` and `serve` commands run one scenario, compare, list scenarios or start the server; `run --json` prints JSON. |
 
 ## 5. Other Nonfunctional Requirements
 
