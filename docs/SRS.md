@@ -78,7 +78,7 @@ Windows, macOS or Linux with Python 3.10+; any modern browser (Chrome, Edge, Fir
 ### 3.2 Hardware Interfaces
 None.
 
-### 3.3 Software Interfaces (JSON over HTTP)
+### 3.3 Software Interfaces
 | ID | Endpoint | Purpose |
 |---|---|---|
 | SI-1 | `GET /api/state` | Current simulation state. |
