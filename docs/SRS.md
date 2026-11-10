@@ -180,5 +180,3 @@ None.
 | Demand surge | 30 | 1382 of 2236 | 375 | 36.0 s |
 | Surge, bigger mediator | 90 | 1928 | 0 | 6.5 s |
 
-## Appendix C: To Be Determined
-None.
