@@ -1,4 +1,4 @@
-# Food Delivery Dispatch Simulator — v8 (simplified)
+# Food Delivery Dispatch Simulator 
 
 A small, readable simulator of a food delivery system built on the **mediator pattern**. It shows how the mediator
 coordinates every order, when its slots become the bottleneck, and how much capacity it needs to keep up. It has a
