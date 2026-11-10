@@ -99,18 +99,3 @@ Each record gives the situation (context), the decision, its consequences and th
 **Alternatives considered**
 - *Server thread with WebSockets or server-sent events:* more complex, needs locking.
 - *Front-end framework (React, Vue):* needs a build step.
-
-## ADR-006: Use only the Python standard library
-**Status:** Accepted · **Date:** 3 November 2026
-
-**Context.** The project is handed to reviewers who should be able to run it immediately on any computer.
-
-**Decision.** Use only the Python 3.10+ standard library (`http.server`, `heapq`, `random`, `json`). The dashboard uses plain JavaScript and no external packages.
-
-**Consequences**
-- (+) Nothing to install; `python main.py` works on a fresh machine.
-- (+) Fewer moving parts and no dependency updates.
-- (−) The HTTP server and charts are simpler than with a framework or charting library.
-
-**Alternatives considered**
-- *Flask/FastAPI and a chart library:* nicer tooling, but adds installation and a build or package step.
